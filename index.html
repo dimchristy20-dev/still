@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070a15">
+<meta name="color-scheme" content="dark">
+<title>Still</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#070a15;--deep:#0d1330;--mist:#9fb0d3;--glow:#6f8fd8;--pale:#dfe7fb;--line:rgba(159,176,211,.28);
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);overflow:hidden}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;height:100%;background:linear-gradient(180deg,var(--ink),var(--deep));color:var(--mist);
+font-family:"Cormorant Garamond",Georgia,serif;font-weight:500;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:var(--ink);z-index:10}
+h1{position:absolute;left:-9999px}
+#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+.stage{display:flex;flex-direction:column;align-items:center;transition:filter 8s,opacity 8s}
+.orbwrap{position:relative;width:min(64vmin,440px);aspect-ratio:1;transform:scale(.62)}
+.orb{position:absolute;inset:0;border:0;padding:0;border-radius:50%;cursor:pointer;
+background:radial-gradient(circle at 38% 34%,#b9c8ef 0%,#6f8fd8 28%,#2b3a78 62%,#121a3d 100%);
+box-shadow:0 0 80px 10px rgba(111,143,216,.25),0 0 200px 60px rgba(60,80,170,.18)}
+.ring{position:absolute;inset:-9%;border-radius:50%;border:1px solid var(--line);pointer-events:none}
+.r2{inset:-20%;opacity:.5}
+button:focus-visible{outline:2px solid #b9c8ef;outline-offset:4px}
+.msg{margin:2.4rem 1.5rem 0;min-height:2.4em;text-align:center;font-size:clamp(1.25rem,4.6vw,1.65rem);letter-spacing:.02em;
+line-height:1.4;max-width:30ch;transition:opacity 1.2s}
+[data-s=idle] .orbwrap{animation:idle 8s ease-in-out infinite}
+[data-s=breathe] .orbwrap{animation:breathe 10s ease-in-out infinite}
+@keyframes idle{0%,100%{opacity:.72}50%{opacity:1}}
+@keyframes breathe{0%{transform:scale(.62)}40%{transform:scale(1)}100%{transform:scale(.62)}}
+@keyframes breatheRM{0%,100%{opacity:.45}40%{opacity:1}}
+.still .stage{filter:brightness(.62)}
+.still .msg{opacity:.5!important}
+.still{cursor:none}
+.bar,.done{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;
+justify-content:center;gap:12px;padding:0 16px;transition:opacity 1.5s}
+.bar{opacity:0;pointer-events:none}
+[data-s=idle] .bar{opacity:1;pointer-events:auto}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.out{display:none}.snd .out{display:flex}
+.seg button,.done button{font:inherit;font-size:1.1rem;min-height:44px;padding:0 18px;background:transparent;color:var(--mist);border:0;cursor:pointer}
+.seg button[aria-pressed=true]{background:rgba(111,143,216,.2);color:var(--pale)}
+.done{opacity:0;pointer-events:none}
+[data-s=settle] .done,[data-s=breathe] .done{opacity:1;pointer-events:auto}
+.still .done{opacity:0;pointer-events:none}
+.done button{border:1px solid var(--line);border-radius:999px}
+@media (prefers-reduced-motion:reduce){
+[data-s=idle] .orbwrap{animation:none}
+[data-s=breathe] .orbwrap{animation:breatheRM 10s ease-in-out infinite;transform:scale(.8)}
+.msg,.stage,.bar,.done{transition-duration:.01s}}
+</style>
+</head>
+<body>
+<h1>Still</h1>
+<main id="app" data-s="idle">
+  <div class="stage">
+    <div class="orbwrap" id="ow"><span class="ring"></span><span class="ring r2"></span><button class="orb" id="orb" aria-label="Start"></button></div>
+    <p class="msg" id="msg" aria-live="polite"></p>
+  </div>
+  <div class="bar">
+    <div class="seg"><button data-set="mode:silent" data-k="silent"></button><button data-set="mode:sound" data-k="sound"></button></div>
+    <div class="seg out"><button data-set="out:spk" data-k="spk"></button><button data-set="out:ear" data-k="ear"></button></div>
+  </div>
+  <div class="done"><button id="done" data-k="done"></button></div>
+</main>
+<script>
+(function(){
+var L={en:{tap:"Tap the circle",s1:"Just sit. Nothing to do.",s2:"Breathe from your belly.",inn:"breathe in",out:["relax","take it easy"],done:"Done",silent:"Silent",sound:"Sound",spk:"Speaker",ear:"Earphones"}};
+var $=function(s){return document.querySelector(s)},app=$("#app"),msg=$("#msg"),ow=$("#ow");
+var P={mode:"silent",out:"spk",lang:"en"},T=[],ac=null,au=null,wl=null,cyc=0,stillT=null;
+try{Object.assign(P,JSON.parse(localStorage.getItem("calm")||"{}"))}catch(e){}
+P.lang="en";
+function save(){try{localStorage.setItem("calm",JSON.stringify(P))}catch(e){}}
+function state(){return app.dataset.s}
+function paint(){
+  var t=L[P.lang];document.documentElement.lang=P.lang;
+  document.querySelectorAll("[data-k]").forEach(function(e){e.textContent=t[e.dataset.k]});
+  document.querySelectorAll("[data-set]").forEach(function(b){var p=b.dataset.set.split(":");b.setAttribute("aria-pressed",P[p[0]]===p[1])});
+  app.classList.toggle("snd",P.mode==="sound");
+  if(state()==="idle"){msg.textContent=t.tap;msg.style.opacity=1}
+}
+function say(txt){msg.style.opacity=0;T.push(setTimeout(function(){msg.textContent=txt;msg.style.opacity=1},800))}
+document.querySelectorAll("[data-set]").forEach(function(b){b.addEventListener("click",function(){
+  var p=b.dataset.set.split(":");P[p[0]]=p[1];save();paint()})});
+
+function startAudio(){
+  var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+  ac=new AC();var ear=P.out==="ear";
+  var master=ac.createGain();master.gain.value=0;master.connect(ac.destination);
+  var pad=ac.createGain();pad.gain.value=.1;pad.connect(master);
+  var base=ear?98:196;
+  [[1,.5],[1.5,.25],[2,.12]].forEach(function(r,i){
+    var o=ac.createOscillator(),g=ac.createGain();o.type="sine";
+    o.frequency.value=base*r[0]*(1+(i-1)*.002);g.gain.value=r[1];o.connect(g);g.connect(pad);o.start()});
+  var len=ac.sampleRate*4,buf=ac.createBuffer(2,len,ac.sampleRate);
+  for(var c=0;c<2;c++){var d=buf.getChannelData(c),l=0;for(var i=0;i<len;i++){l=(l+.02*(Math.random()*2-1))/1.02;d[i]=l*3.5}}
+  var src=ac.createBufferSource();src.buffer=buf;src.loop=true;
+  var lp=ac.createBiquadFilter();lp.type="lowpass";lp.frequency.value=ear?600:900;
+  var nz=ac.createGain();nz.gain.value=.15;
+  var pan=ac.createStereoPanner?ac.createStereoPanner():null;
+  src.connect(lp);lp.connect(nz);
+  if(pan){nz.connect(pan);pan.connect(master);
+    if(ear){var lfo=ac.createOscillator(),lg=ac.createGain();lfo.frequency.value=.06;lg.gain.value=.7;lfo.connect(lg);lg.connect(pan.pan);lfo.start()}}
+  else nz.connect(master);
+  src.start();
+  master.gain.setTargetAtTime(.5,ac.currentTime,2);
+  au={master:master,pad:pad,nz:nz};
+}
+function stopAudio(){
+  if(!ac)return;var a=ac;
+  if(au)au.master.gain.setTargetAtTime(0,a.currentTime,.6);
+  setTimeout(function(){try{a.close()}catch(e){}},2500);ac=null;au=null;
+}
+function swell(inh){
+  if(!au)return;var n=ac.currentTime;
+  au.pad.gain.setTargetAtTime(inh?.2:.07,n,inh?1.4:2);
+  au.nz.gain.setTargetAtTime(inh?.1:.26,n,inh?1.4:2);
+}
+function inhale(){say(L[P.lang].inn);swell(true);
+  T.push(setTimeout(function(){if(state()!=="breathe")return;say(L[P.lang].out[cyc++%2]);swell(false)},4000))}
+ow.addEventListener("animationiteration",function(e){if(e.animationName==="breathe"||e.animationName==="breatheRM")inhale()});
+
+async function lock(){try{if(navigator.wakeLock)wl=await navigator.wakeLock.request("screen")}catch(e){}}
+function poke(){
+  app.classList.remove("still");clearTimeout(stillT);
+  if(state()!=="idle")stillT=setTimeout(function(){app.classList.add("still")},20000)}
+["pointermove","pointerdown","keydown","wheel","touchstart"].forEach(function(ev){document.addEventListener(ev,poke,{passive:true})});
+document.addEventListener("visibilitychange",function(){
+  if(document.visibilityState==="visible"&&state()!=="idle"){lock();if(ac&&ac.state==="suspended")ac.resume()}});
+
+function start(){
+  if(state()!=="idle")return;
+  app.dataset.s="settle";cyc=0;poke();lock();
+  if(P.mode==="sound")startAudio();
+  msg.style.opacity=0;
+  T.push(setTimeout(function(){msg.textContent=L[P.lang].s1;msg.style.opacity=1},600));
+  T.push(setTimeout(function(){say(L[P.lang].s2)},6000));
+  T.push(setTimeout(function(){msg.style.opacity=0;app.dataset.s="breathe";inhale()},10500));
+}
+function stop(){
+  T.forEach(clearTimeout);T=[];stopAudio();
+  try{if(wl)wl.release()}catch(e){}wl=null;
+  clearTimeout(stillT);app.classList.remove("still");
+  app.dataset.s="idle";paint();
+}
+$("#orb").addEventListener("click",start);
+$("#done").addEventListener("click",stop);
+paint();
+})();
+</script>
+</body>
+</html>
